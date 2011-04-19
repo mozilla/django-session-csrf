@@ -1,0 +1,3 @@
+# Install these to run the tests:
+django
+mock
