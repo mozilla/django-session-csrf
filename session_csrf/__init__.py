@@ -1,7 +1,16 @@
 """CSRF protection without cookies."""
+import functools
+
 import django.core.context_processors
+from django.conf import settings
+from django.core.cache import cache
 from django.middleware import csrf as django_csrf
 from django.utils import crypto
+from django.utils.cache import patch_vary_headers
+
+
+ANON_COOKIE = getattr(settings, 'ANON_COOKIE', 'anoncsrf')
+ANON_TIMEOUT = getattr(settings, 'ANON_TIMEOUT', 60 * 60 * 2)  # 2 hours.
 
 
 # This overrides django.core.context_processors.csrf to dump our csrf_token
@@ -27,12 +36,17 @@ class CsrfMiddleware(object):
 
         The token is available at request.csrf_token.
         """
+        if hasattr(request, 'csrf_token'):
+            return
         if request.user.is_authenticated():
             if 'csrf_token' not in request.session:
                 token = django_csrf._get_new_csrf_key()
                 request.csrf_token = request.session['csrf_token'] = token
             else:
                 request.csrf_token = request.session['csrf_token']
+        elif ANON_COOKIE in request.COOKIES:
+            key = request.COOKIES[ANON_COOKIE]
+            request.csrf_token = cache.get(key, '')
         else:
             request.csrf_token = ''
 
@@ -71,3 +85,33 @@ class CsrfMiddleware(object):
             return self._reject(request, reason)
         else:
             return self._accept(request)
+
+
+def anonymous_csrf(f):
+    """Decorator that assigns a CSRF token to an anonymous user."""
+    @functools.wraps(f)
+    def wrapper(request, *args, **kw):
+        if not request.user.is_authenticated():
+            if ANON_COOKIE in request.COOKIES:
+                key = request.COOKIES[ANON_COOKIE]
+                token = cache.get(key)
+            else:
+                key = django_csrf._get_new_csrf_key()
+                token = django_csrf._get_new_csrf_key()
+            cache.set(key, token, ANON_TIMEOUT)
+            request.csrf_token = token
+        response = f(request, *args, **kw)
+        if not request.user.is_authenticated():
+            # Set or reset the cache and cookie timeouts.
+            response.set_cookie(ANON_COOKIE, key, max_age=ANON_TIMEOUT,
+                                httponly=True)
+            patch_vary_headers(response, ['Cookie'])
+        return response
+    return wrapper
+
+
+# Replace Django's middleware with our own.
+def monkeypatch():
+    from django.views.decorators import csrf as csrf_dec
+    django_csrf.CsrfViewMiddleware = CsrfMiddleware
+    csrf_dec.csrf_protect = csrf_dec.decorator_from_middleware(CsrfMiddleware)

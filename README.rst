@@ -37,7 +37,41 @@ Replace ``django.middleware.csrf.CsrfViewMiddleware`` with
         ...
     )
 
-Everything else should be identical to the built-in CSRF protection.
+Then we have to monkeypatch Django to fix the ``@csrf_protect`` decorator::
+
+    import session_csrf
+    session_csrf.monkeypatch()
+
+Make sure that's in something like ``manage.py`` so the patch gets applied
+before your views are imported.
+
+
+Differences from Django
+-----------------------
+
+``django-session-csrf`` does not assign CSRF tokens to anonymous users because
+we don't want to support a session for every anonymous user. Instead, views
+that need anonymous forms can be decorated with ``@anonymous_csrf``::
+
+    from session_csrf import anonymous_csrf
+
+    @anonymous_csrf
+    def login(request):
+        ...
+
+``anonymous_csrf`` uses the cache to give anonymous users a lightweight
+session. It sends a cookie to uniquely identify the user and stores the CSRF
+token in the cache.  It can be controlled through these settings:
+
+    ``ANON_COOKIE``
+        the name used for the anonymous user's cookie
+
+        Default: ``anoncsrf``
+
+    ``ANON_TIMEOUT``
+        the cache timeout (in seconds) to use for the anonymous CSRF tokens
+
+        Default: ``60 * 60 * 2  # 2 hours``
 
 
 Why do I want this?
@@ -54,6 +88,4 @@ Why don't I want this?
 
 1. Storing tokens in sessions means you have to hit your session store more
    often.
-2. You want CSRF protection for anonymous users. ``django-session-csrf`` does
-   not create CSRF tokens for anonymous users since we're worried about the
-   scalability of that.
+2. It's a little bit more work to CSRF-protect forms for anonymous users.
