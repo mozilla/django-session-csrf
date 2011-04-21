@@ -1,7 +1,6 @@
 """CSRF protection without cookies."""
 import functools
 
-import django.core.context_processors
 from django.conf import settings
 from django.core.cache import cache
 from django.middleware import csrf as django_csrf
@@ -91,7 +90,8 @@ def anonymous_csrf(f):
     """Decorator that assigns a CSRF token to an anonymous user."""
     @functools.wraps(f)
     def wrapper(request, *args, **kw):
-        if not request.user.is_authenticated():
+        anon = not request.user.is_authenticated()
+        if anon:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
                 token = cache.get(key)
@@ -101,7 +101,7 @@ def anonymous_csrf(f):
             cache.set(key, token, ANON_TIMEOUT)
             request.csrf_token = token
         response = f(request, *args, **kw)
-        if not request.user.is_authenticated():
+        if anon:
             # Set or reset the cache and cookie timeouts.
             response.set_cookie(ANON_COOKIE, key, max_age=ANON_TIMEOUT,
                                 httponly=True)
