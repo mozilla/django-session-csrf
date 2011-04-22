@@ -6,7 +6,7 @@ ROOT = os.path.abspath(os.path.dirname(__file__))
 
 setup(
     name='django-session-csrf',
-    version='0.2',
+    version='0.4',
     description='CSRF protection for Django without cookies.',
     long_description=open(os.path.join(ROOT, 'README.rst')).read(),
     author='Jeff Balogh',

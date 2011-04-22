@@ -104,7 +104,7 @@ def anonymous_csrf(f):
         if anon:
             # Set or reset the cache and cookie timeouts.
             response.set_cookie(ANON_COOKIE, key, max_age=ANON_TIMEOUT,
-                                httponly=True)
+                                httponly=True, secure=request.is_secure())
             patch_vary_headers(response, ['Cookie'])
         return response
     return wrapper
