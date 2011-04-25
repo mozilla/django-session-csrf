@@ -29,9 +29,12 @@ Replace ``django.core.context_processors.csrf`` with
     )
 
 Replace ``django.middleware.csrf.CsrfViewMiddleware`` with
-``session_csrf.CsrfMiddleware`` in your ``MIDDLEWARE_CLASSES``::
+``session_csrf.CsrfMiddleware`` in your ``MIDDLEWARE_CLASSES``
+and make sure it is listed after the AuthenticationMiddleware::
 
     MIDDLEWARE_CLASSES = (
+        ...
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
         ...
         'session_csrf.CsrfMiddleware',
         ...
