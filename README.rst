@@ -77,6 +77,19 @@ token in the cache.  It can be controlled through these settings:
         Default: ``60 * 60 * 2  # 2 hours``
 
 
+If you only want a view to have CSRF protection for logged-in users, you can
+use the ``anonymous_csrf_exempt`` decorator. This could be useful if the
+anonymous view is protected through a CAPTCHA, for example.
+
+::
+
+    from session_csrf import anonymous_csrf_exempt
+
+    @anonymous_csrf_exempt
+    def protected_in_another_way(request):
+        ...
+
+
 Why do I want this?
 -------------------
 

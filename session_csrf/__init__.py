@@ -58,6 +58,10 @@ class CsrfMiddleware(object):
         if getattr(view_func, 'csrf_exempt', False):
             return
 
+        if (getattr(view_func, 'anonymous_csrf_exempt', False)
+            and not request.user.is_authenticated()):
+            return
+
         # Bail if this isn't a POST.
         if request.method != 'POST':
             return self._accept(request)
@@ -108,6 +112,12 @@ def anonymous_csrf(f):
             patch_vary_headers(response, ['Cookie'])
         return response
     return wrapper
+
+
+def anonymous_csrf_exempt(f):
+    """Like @csrf_exempt but only for anonymous requests."""
+    f.anonymous_csrf_exempt = True
+    return f
 
 
 # Replace Django's middleware with our own.

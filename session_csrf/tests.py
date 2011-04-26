@@ -14,12 +14,13 @@ from django.template import context
 
 import mock
 
-from session_csrf import CsrfMiddleware, anonymous_csrf
+from session_csrf import CsrfMiddleware, anonymous_csrf, anonymous_csrf_exempt
 
 
 urlpatterns = patterns('',
     ('^$', lambda r: http.HttpResponse()),
     ('^anon$', anonymous_csrf(lambda r: http.HttpResponse())),
+    ('^no-anon-csrf$', anonymous_csrf_exempt(lambda r: http.HttpResponse())),
     ('^logout$', anonymous_csrf(lambda r: logout(r) or http.HttpResponse())),
 )
 
@@ -225,6 +226,14 @@ class TestAnonymousCsrf(django.test.TestCase):
         cache.clear()
         response = self.client.get('/anon')
         self.assertEqual(len(response._request.csrf_token), 32)
+
+    def test_anonymous_csrf_exempt(self):
+        response = self.client.post('/no-anon-csrf')
+        self.assertEqual(response.status_code, 200)
+
+        self.login()
+        response = self.client.post('/no-anon-csrf')
+        self.assertEqual(response.status_code, 403)
 
 
 class ClientHandler(django.test.client.ClientHandler):
