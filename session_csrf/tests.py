@@ -217,6 +217,15 @@ class TestAnonymousCsrf(django.test.TestCase):
         response = self.client.get('/logout')
         self.assertEqual(response.status_code, 200)
 
+    def test_existing_anon_cookie_not_in_cache(self):
+        response = self.client.get('/anon')
+        self.assertEqual(len(response._request.csrf_token), 32)
+
+        # Clear cache and make sure we still get a token
+        cache.clear()
+        response = self.client.get('/anon')
+        self.assertEqual(len(response._request.csrf_token), 32)
+
 
 class ClientHandler(django.test.client.ClientHandler):
     """

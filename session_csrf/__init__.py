@@ -94,7 +94,7 @@ def anonymous_csrf(f):
         if anon:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(key)
+                token = cache.get(key) or django_csrf._get_new_csrf_key()
             else:
                 key = django_csrf._get_new_csrf_key()
                 token = django_csrf._get_new_csrf_key()
