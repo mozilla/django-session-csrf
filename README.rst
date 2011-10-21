@@ -90,6 +90,15 @@ anonymous view is protected through a CAPTCHA, for example.
         ...
 
 
+If you want all views to have CSRF protection for anonymous users, use
+the following setting:
+
+    ``ANON_ALWAYS``
+        always provide CSRF protection for anonymous users
+
+        Default: False
+
+
 Why do I want this?
 -------------------
 
