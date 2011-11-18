@@ -76,6 +76,13 @@ token in the cache.  It can be controlled through these settings:
 
         Default: ``60 * 60 * 2  # 2 hours``
 
+Note that by default Django uses local-memory caching, which will not
+work with anonymous CSRF if there is more than one web server thread.
+To use anonymous CSRF, you must configure a cache that's shared
+between web server instances, such as Memcached.  See the `Django cache
+documentation <https://docs.djangoproject.com/en/dev/topics/cache/>`_
+for more information.
+
 
 If you only want a view to have CSRF protection for logged-in users, you can
 use the ``anonymous_csrf_exempt`` decorator. This could be useful if the
