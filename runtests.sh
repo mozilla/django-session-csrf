@@ -24,7 +24,6 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.media',
     'django.core.context_processors.static',
     'django.contrib.messages.context_processors.messages',
-    'session_csrf.context_processor',
 )
 
 ROOT_URLCONF = 'session_csrf.tests'
