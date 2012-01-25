@@ -68,7 +68,8 @@ class TestCsrfToken(django.test.TestCase):
 
 
 class TestCsrfMiddleware(django.test.TestCase):
-
+    urls = 'session_csrf.tests'
+    
     def setUp(self):
         self.token = 'a' * 32
         self.rf = django.test.RequestFactory()
@@ -147,7 +148,8 @@ class TestCsrfMiddleware(django.test.TestCase):
 
 
 class TestAnonymousCsrf(django.test.TestCase):
-
+    urls = 'session_csrf.tests'
+    
     def setUp(self):
         self.token = 'a' * 32
         self.rf = django.test.RequestFactory()
