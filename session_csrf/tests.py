@@ -80,6 +80,10 @@ class TestCsrfMiddleware(django.test.TestCase):
         cache.set(self.token, 'woo')
         request = rf.get('/')
         request.session = {}
+        r = {
+            'wsgi.input':      django.test.client.FakePayload('')
+        }
+        ClientHandler()(self.rf._base_environ(**r)) # hack to set up request middleware
         self.mw.process_request(request)
         self.assertEqual(request.csrf_token, 'woo')
 
