@@ -24,7 +24,6 @@ urlpatterns = patterns('',
 
 
 class TestCsrfToken(django.test.TestCase):
-    urls = 'session_csrf.tests'
 
     def setUp(self):
         self.client.handler = ClientHandler()
@@ -66,7 +65,6 @@ class TestCsrfToken(django.test.TestCase):
 
 
 class TestCsrfMiddleware(django.test.TestCase):
-    urls = 'session_csrf.tests'
     
     def setUp(self):
         self.token = 'a' * 32
