@@ -1,5 +1,3 @@
-from collections import namedtuple
-
 import django.test
 from django import http
 from django.conf.urls.defaults import patterns
@@ -101,7 +99,7 @@ class TestCsrfMiddleware(django.test.TestCase):
 
     def test_csrf_exempt(self):
         # Make sure @csrf_exempt still works.
-        view = namedtuple('_', 'csrf_exempt')
+        view = type("", (), {'csrf_exempt':True})()
         self.assertEqual(self.process_view(self.rf.post('/'), view), None)
 
     def test_only_check_post(self):
