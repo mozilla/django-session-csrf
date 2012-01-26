@@ -11,6 +11,7 @@ from django.utils.cache import patch_vary_headers
 ANON_COOKIE = getattr(settings, 'ANON_COOKIE', 'anoncsrf')
 ANON_TIMEOUT = getattr(settings, 'ANON_TIMEOUT', 60 * 60 * 2)  # 2 hours.
 ANON_ALWAYS = getattr(settings, 'ANON_ALWAYS', False)
+PREFIX = 'sessioncsrf:'
 
 
 # This overrides django.core.context_processors.csrf to dump our csrf_token
@@ -49,14 +50,14 @@ class CsrfMiddleware(object):
             token = ''
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(key, '')
+                token = cache.get(PREFIX + key, '')
             if ANON_ALWAYS:
                 if not key:
                     key = django_csrf._get_new_csrf_key()
                 if not token:
                     token = django_csrf._get_new_csrf_key()
                 request._anon_csrf_key = key
-                cache.set(key, token, ANON_TIMEOUT)
+                cache.set(PREFIX + key, token, ANON_TIMEOUT)
             request.csrf_token = token
 
     def process_view(self, request, view_func, args, kwargs):
@@ -117,11 +118,11 @@ def anonymous_csrf(f):
         if use_anon_cookie:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(key) or django_csrf._get_new_csrf_key()
+                token = cache.get(PREFIX + key) or django_csrf._get_new_csrf_key()
             else:
                 key = django_csrf._get_new_csrf_key()
                 token = django_csrf._get_new_csrf_key()
-            cache.set(key, token, ANON_TIMEOUT)
+            cache.set(PREFIX + key, token, ANON_TIMEOUT)
             request.csrf_token = token
         response = f(request, *args, **kw)
         if use_anon_cookie:
