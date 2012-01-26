@@ -72,8 +72,8 @@ class CsrfMiddleware(object):
             and not request.user.is_authenticated()):
             return
 
-        # Bail if this isn't a POST.
-        if request.method != 'POST':
+        # Bail if this is a safe method.
+        if request.method in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
             return self._accept(request)
 
         # The test client uses this to get around CSRF processing.
