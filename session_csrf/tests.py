@@ -1,5 +1,3 @@
-from collections import namedtuple
-
 import django.test
 from django import http
 from django.conf.urls.defaults import patterns
@@ -26,7 +24,6 @@ urlpatterns = patterns('',
 
 
 class TestCsrfToken(django.test.TestCase):
-    urls = 'session_csrf.tests'
 
     def setUp(self):
         self.client.handler = ClientHandler()
@@ -68,7 +65,7 @@ class TestCsrfToken(django.test.TestCase):
 
 
 class TestCsrfMiddleware(django.test.TestCase):
-
+    
     def setUp(self):
         self.token = 'a' * 32
         self.rf = django.test.RequestFactory()
@@ -83,6 +80,10 @@ class TestCsrfMiddleware(django.test.TestCase):
         cache.set(self.token, 'woo')
         request = rf.get('/')
         request.session = {}
+        r = {
+            'wsgi.input':      django.test.client.FakePayload('')
+        }
+        ClientHandler()(self.rf._base_environ(**r)) # hack to set up request middleware
         self.mw.process_request(request)
         self.assertEqual(request.csrf_token, 'woo')
 
@@ -100,7 +101,7 @@ class TestCsrfMiddleware(django.test.TestCase):
 
     def test_csrf_exempt(self):
         # Make sure @csrf_exempt still works.
-        view = namedtuple('_', 'csrf_exempt')
+        view = type("", (), {'csrf_exempt':True})()
         self.assertEqual(self.process_view(self.rf.post('/'), view), None)
 
     def test_only_check_post(self):
@@ -147,7 +148,8 @@ class TestCsrfMiddleware(django.test.TestCase):
 
 
 class TestAnonymousCsrf(django.test.TestCase):
-
+    urls = 'session_csrf.tests'
+    
     def setUp(self):
         self.token = 'a' * 32
         self.rf = django.test.RequestFactory()
