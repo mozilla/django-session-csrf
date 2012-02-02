@@ -45,8 +45,8 @@ Then we have to monkeypatch Django to fix the ``@csrf_protect`` decorator::
     import session_csrf
     session_csrf.monkeypatch()
 
-Make sure that's in something like ``manage.py`` so the patch gets applied
-before your views are imported.
+Make sure that's in something like your root ``urls.py`` so the patch gets
+applied before your views are imported.
 
 
 Differences from Django
