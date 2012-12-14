@@ -2,7 +2,9 @@ import django.test
 from django import http
 from django.conf.urls.defaults import patterns
 from django.contrib.auth import logout
+from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.auth.models import User
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signals
 from django.core.cache import cache
@@ -86,12 +88,8 @@ class TestCsrfMiddleware(django.test.TestCase):
         rf.cookies['anoncsrf'] = self.token
         cache.set(PREFIX + self.token, 'woo')
         request = rf.get('/')
-        request.session = {}
-        r = {
-            'wsgi.input':      django.test.client.FakePayload('')
-        }
-        # Hack to set up request middleware.
-        ClientHandler()(self.rf._base_environ(**r))
+        SessionMiddleware().process_request(request)
+        AuthenticationMiddleware().process_request(request)
         self.mw.process_request(request)
         self.assertEqual(request.csrf_token, 'woo')
 
@@ -335,6 +333,15 @@ class TestAnonAlways(django.test.TestCase):
         cache.clear()
         response = self.client.get('/')
         self.assertEqual(len(response._request.csrf_token), 32)
+
+    def test_massive_anon_cookie(self):
+        # if the key + PREFIX + setting prefix is greater than 250
+        # memcache will cry and you get a warning if you use LocMemCache
+        junk = 'x' * 300
+        with mock.patch('warnings.warn') as warner:
+            response = self.client.get('/', HTTP_COOKIE='anoncsrf=%s' % junk)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(warner.call_count, 0)
 
 
 class ClientHandler(django.test.client.ClientHandler):

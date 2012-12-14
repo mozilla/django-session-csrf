@@ -50,15 +50,23 @@ class CsrfMiddleware(object):
             token = ''
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(PREFIX + key, '')
+                token = cache.get(self._prefix(key), '')
             if ANON_ALWAYS:
                 if not key:
                     key = django_csrf._get_new_csrf_key()
                 if not token:
                     token = django_csrf._get_new_csrf_key()
                 request._anon_csrf_key = key
-                cache.set(PREFIX + key, token, ANON_TIMEOUT)
+                cache.set(self._prefix(key), token, ANON_TIMEOUT)
             request.csrf_token = token
+
+    def _prefix(self, key):
+        # In case a bogus request comes in with a massive faked anoncsrf
+        # cookie value, memcache will raise a MemcachedKeyLengthError
+        # The limit is 250 but we cut it shorter because of the possible
+        # configuration prefix.
+        prefixed = PREFIX + key
+        return prefixed[:100]
 
     def process_view(self, request, view_func, args, kwargs):
         """Check the CSRF token if this is a POST."""

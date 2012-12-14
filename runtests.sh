@@ -35,12 +35,13 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'session_csrf',
 )
+SECRET_KEY = 'asdf'
 EOF
 
 export PYTHONPATH=.
 export DJANGO_SETTINGS_MODULE=settings
 
-django-admin.py test session_csrf
+django-admin.py test session_csrf $@
 
 rm -f $SETTINGS*
 rm -f test.db
