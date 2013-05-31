@@ -1,5 +1,6 @@
 """CSRF protection without cookies."""
 import functools
+import hashlib
 
 from django.conf import settings
 from django.core.cache import cache
@@ -20,6 +21,16 @@ def context_processor(request):
     # Django warns about an empty token unless you call it NOTPROVIDED.
     return {'csrf_token': getattr(request, 'csrf_token', 'NOTPROVIDED')}
 
+
+def prep_key(key):
+    """
+    In case a bogus request comes in with a large or wrongly formatted
+    massive anoncsrf cookie value, memcache will raise a
+    MemcachedKeyLengthError or MemcachedKeyCharacterError. We hash the
+    key here in order to have a predictable length and character set.
+    """
+    prefixed = PREFIX + key
+    return hashlib.md5(prefixed).hexdigest()
 
 class CsrfMiddleware(object):
 
@@ -50,23 +61,15 @@ class CsrfMiddleware(object):
             token = ''
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(self._prefix(key), '')
+                token = cache.get(prep_key(key), '')
             if ANON_ALWAYS:
                 if not key:
                     key = django_csrf._get_new_csrf_key()
                 if not token:
                     token = django_csrf._get_new_csrf_key()
                 request._anon_csrf_key = key
-                cache.set(self._prefix(key), token, ANON_TIMEOUT)
+                cache.set(prep_key(key), token, ANON_TIMEOUT)
             request.csrf_token = token
-
-    def _prefix(self, key):
-        # In case a bogus request comes in with a massive faked anoncsrf
-        # cookie value, memcache will raise a MemcachedKeyLengthError
-        # The limit is 250 but we cut it shorter because of the possible
-        # configuration prefix.
-        prefixed = PREFIX + key
-        return prefixed[:100]
 
     def process_view(self, request, view_func, args, kwargs):
         """Check the CSRF token if this is a POST."""
@@ -126,11 +129,11 @@ def anonymous_csrf(f):
         if use_anon_cookie:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(PREFIX + key) or django_csrf._get_new_csrf_key()
+                token = cache.get(prep_key(key)) or django_csrf._get_new_csrf_key()
             else:
                 key = django_csrf._get_new_csrf_key()
                 token = django_csrf._get_new_csrf_key()
-            cache.set(PREFIX + key, token, ANON_TIMEOUT)
+            cache.set(prep_key(key), token, ANON_TIMEOUT)
             request.csrf_token = token
         response = f(request, *args, **kw)
         if use_anon_cookie:
