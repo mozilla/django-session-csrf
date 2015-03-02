@@ -1,0 +1,21 @@
+{
+    "name": "django-session-csrf",
+    "description": "CSRF protection for Django without cookies.",
+    "repository": {
+        "url": "https://github.com/mozilla/django-session-csrf",
+        "license": "BSD 3-Clause"
+    },
+    "participate": {
+        "home": "https://github.com/mozilla/django-session-csrf",
+        "docs": "https://github.com/mozilla/django-session-csrf"
+    },
+    "bugs": {
+        "list": "https://github.com/mozilla/django-session-csrf/issues",
+        "report": "https://github.com/mozilla/django-session-csrf/issues/new"
+    },
+    "keywords": [
+        "django",
+        "python",
+        "csrf"
+    ]
+}
