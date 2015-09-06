@@ -28,6 +28,64 @@ urlpatterns = patterns('',
 )
 
 
+class TestAnonAsLoggedIn(django.test.TestCase):
+    def setUp(self):
+        self.client.handler = ClientHandler()
+        User.objects.create_user('jbalogh', 'j@moz.com', 'password')
+        self.save_ANON_AS_LOGGED_IN = session_csrf.ANON_AS_LOGGED_IN
+        session_csrf.ANON_AS_LOGGED_IN = True
+
+    def tearDown(self):
+        session_csrf.ANON_AS_LOGGED_IN = self.save_ANON_AS_LOGGED_IN
+
+    def login(self):
+        assert self.client.login(username='jbalogh', password='password')
+
+    def test_csrftoken_unauthenticated(self):
+        # anonymous users should get a token now
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
+
+    def test_csrftoken_authenticated(self):
+        # things should still work fine when logged in - business as usual
+        self.login()
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
+
+    def test_csrftoken_new_session(self):
+        # actually a c&p of TestCscrfToken.test_csrctoken_new_session
+        # The csrf_token is added to request.session the first time.
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        token = response.wsgi_request.session['csrf_token']
+        self.assertEqual(len(token), 32)
+        self.assertEqual(token, response.wsgi_request.csrf_token)
+
+    def test_csrftoken_existing_session(self):
+        # actually a c&p of TestCscrfToken.test_csrctoken_new_session
+        # The csrf_token in request.session is reused on subsequent requests.
+        r1 = self.client.get('/', follow=True)
+        token = r1.wsgi_request.session['csrf_token']
+
+        r2 = self.client.get('/', follow=True)
+        self.assertEqual(r1.wsgi_request.csrf_token, r2.wsgi_request.csrf_token)
+        self.assertEqual(token, r2.wsgi_request.csrf_token)
+
+    def test_anon_token_cookie_ignored(self):
+        token = 'a' * 32
+        mw = CsrfMiddleware()
+        rf = django.test.RequestFactory()
+        rf.cookies['anoncsrf'] = token
+        cache.set(prep_key(token), 'woo')
+        request = rf.get('/')
+        SessionMiddleware().process_request(request)
+        AuthenticationMiddleware().process_request(request)
+        mw.process_request(request)
+        self.assertNotEqual(request.csrf_token, 'woo')
+
+
 class TestCsrfToken(django.test.TestCase):
 
     def setUp(self):
