@@ -1,3 +1,5 @@
+import warnings
+
 from django import http
 from django.conf.urls import patterns
 from django.contrib.auth import logout
@@ -82,6 +84,22 @@ class TestAnonAsLoggedIn(django.test.TestCase):
         AuthenticationMiddleware().process_request(request)
         mw.process_request(request)
         self.assertNotEqual(request.csrf_token, 'woo')
+
+    def test_anon_decorators_do_nothing(self):
+        view = lambda: ""
+        with warnings.catch_warnings(record=True) as w:
+            ret_val = anonymous_csrf(view)
+            self.assertEqual(view, ret_val)
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertIn("ANON_AS_LOGGED_IN", str(w[0].message))
+
+        with warnings.catch_warnings(record=True) as w:
+            ret_val = anonymous_csrf_exempt(view)
+            self.assertFalse(hasattr(ret_val, "anonymous_csrf_exempt"))
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertIn("ANON_AS_LOGGED_IN", str(w[0].message))
 
 
 class TestCsrfToken(django.test.TestCase):
