@@ -6,7 +6,7 @@ cat > $SETTINGS <<EOF
 DATABASES = {
     'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': 'test.db',
+            'NAME': ':memory:',
     },
 }
 
@@ -42,6 +42,8 @@ export PYTHONPATH=.
 export DJANGO_SETTINGS_MODULE=settings
 
 django-admin.py test session_csrf $@
+return_code=$?
 
 rm -f $SETTINGS*
-rm -f test.db
+
+exit $return_code
