@@ -1,6 +1,3 @@
-import urllib
-
-import django.test
 from django import http
 from django.conf.urls import patterns
 from django.contrib.auth import logout
@@ -10,8 +7,9 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signals
 from django.core.cache import cache
-from django.core.handlers.wsgi import WSGIRequest
 from django.core.exceptions import ImproperlyConfigured
+from django.core.handlers.wsgi import WSGIRequest
+import django.test
 
 import mock
 
