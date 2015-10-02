@@ -50,7 +50,7 @@ class CsrfMiddleware(object):
         """
         if hasattr(request, 'csrf_token'):
             return
-        if request.user.is_authenticated():
+        if hasattr(request, 'user') and request.user.is_authenticated():
             if 'csrf_token' not in request.session:
                 token = django_csrf._get_new_csrf_key()
                 request.csrf_token = request.session['csrf_token'] = token
@@ -80,8 +80,11 @@ class CsrfMiddleware(object):
         if getattr(view_func, 'csrf_exempt', False):
             return
 
+        if not hasattr(request, 'user'):
+            return
+
         if (getattr(view_func, 'anonymous_csrf_exempt', False)
-            and not request.user.is_authenticated()):
+            and not (hasattr(request, 'user') and request.user.is_authenticated())):
             return
 
         # Bail if this is a safe method.
@@ -125,7 +128,7 @@ def anonymous_csrf(f):
     """Decorator that assigns a CSRF token to an anonymous user."""
     @functools.wraps(f)
     def wrapper(request, *args, **kw):
-        use_anon_cookie = not (request.user.is_authenticated() or ANON_ALWAYS)
+        use_anon_cookie = not (hasattr(request, 'user') and request.user.is_authenticated()) and not ANON_ALWAYS
         if use_anon_cookie:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
