@@ -110,7 +110,7 @@ class TestCsrfMiddleware(django.test.TestCase):
 
     def test_csrf_exempt(self):
         # Make sure @csrf_exempt still works.
-        view = type("", (), {'csrf_exempt': True})()
+        view = type(str(""), (), {'csrf_exempt': True})()
         self.assertEqual(self.process_view(self.rf.post('/'), view), None)
 
     def test_safe_whitelist(self):
