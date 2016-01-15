@@ -2,7 +2,7 @@ import urllib
 
 import django.test
 from django import http
-from django.conf.urls.defaults import patterns
+from django.conf.urls import patterns
 from django.contrib.auth import logout
 from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.auth.models import User
