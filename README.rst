@@ -52,9 +52,10 @@ applied before your views are imported.
 Differences from Django
 -----------------------
 
-``django-session-csrf`` does not assign CSRF tokens to anonymous users because
-we don't want to support a session for every anonymous user. Instead, views
-that need anonymous forms can be decorated with ``@anonymous_csrf``::
+By default ``django-session-csrf`` does not assign CSRF tokens to anonymous
+users because we don't want to support a session for every anonymous user.
+Instead, views that need anonymous forms can be decorated with
+``@anonymous_csrf``::
 
     from session_csrf import anonymous_csrf
 
@@ -104,6 +105,18 @@ the following setting:
         always provide CSRF protection for anonymous users
 
         Default: False
+
+Alternatively, you can make ``django-session-csrf`` act exactly as Django does
+with the following setting:
+
+    ``ANON_AS_LOGGED_IN``
+        set the CSRF token for anonymous users in their session
+
+        Default: ``False``
+
+If ``ANON_AS_LOGGEDIN`` is set, the ``anonymous_csrf`` and
+``anonymous_csrf_exempt`` will do nothing to the view they decorate and issue a
+warning.
 
 
 Why do I want this?

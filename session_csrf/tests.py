@@ -1,8 +1,7 @@
-import urllib
+import warnings
 
-import django.test
 from django import http
-from django.conf.urls.defaults import patterns
+from django.conf.urls import patterns
 from django.contrib.auth import logout
 from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.auth.models import User
@@ -10,9 +9,9 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signals
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.core.handlers.wsgi import WSGIRequest
-from django.db import close_connection
-from django.template import context
+import django.test
 
 import mock
 
@@ -27,6 +26,80 @@ urlpatterns = patterns('',
     ('^no-anon-csrf$', anonymous_csrf_exempt(lambda r: http.HttpResponse())),
     ('^logout$', anonymous_csrf(lambda r: logout(r) or http.HttpResponse())),
 )
+
+
+class TestAnonAsLoggedIn(django.test.TestCase):
+    def setUp(self):
+        self.client.handler = ClientHandler()
+        User.objects.create_user('jbalogh', 'j@moz.com', 'password')
+        self.save_ANON_AS_LOGGED_IN = session_csrf.ANON_AS_LOGGED_IN
+        session_csrf.ANON_AS_LOGGED_IN = True
+
+    def tearDown(self):
+        session_csrf.ANON_AS_LOGGED_IN = self.save_ANON_AS_LOGGED_IN
+
+    def login(self):
+        assert self.client.login(username='jbalogh', password='password')
+
+    def test_csrftoken_unauthenticated(self):
+        # anonymous users should get a token now
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
+
+    def test_csrftoken_authenticated(self):
+        # things should still work fine when logged in - business as usual
+        self.login()
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
+
+    def test_csrftoken_new_session(self):
+        # actually a c&p of TestCscrfToken.test_csrctoken_new_session
+        # The csrf_token is added to request.session the first time.
+        response = self.client.get('/', follow=True)
+        # The CSRF token is a 32-character MD5 string.
+        token = response.wsgi_request.session['csrf_token']
+        self.assertEqual(len(token), 32)
+        self.assertEqual(token, response.wsgi_request.csrf_token)
+
+    def test_csrftoken_existing_session(self):
+        # actually a c&p of TestCscrfToken.test_csrctoken_new_session
+        # The csrf_token in request.session is reused on subsequent requests.
+        r1 = self.client.get('/', follow=True)
+        token = r1.wsgi_request.session['csrf_token']
+
+        r2 = self.client.get('/', follow=True)
+        self.assertEqual(r1.wsgi_request.csrf_token, r2.wsgi_request.csrf_token)
+        self.assertEqual(token, r2.wsgi_request.csrf_token)
+
+    def test_anon_token_cookie_ignored(self):
+        token = 'a' * 32
+        mw = CsrfMiddleware()
+        rf = django.test.RequestFactory()
+        rf.cookies['anoncsrf'] = token
+        cache.set(prep_key(token), 'woo')
+        request = rf.get('/')
+        SessionMiddleware().process_request(request)
+        AuthenticationMiddleware().process_request(request)
+        mw.process_request(request)
+        self.assertNotEqual(request.csrf_token, 'woo')
+
+    def test_anon_decorators_do_nothing(self):
+        view = lambda: ""
+        with warnings.catch_warnings(record=True) as w:
+            ret_val = anonymous_csrf(view)
+            self.assertEqual(view, ret_val)
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertIn("ANON_AS_LOGGED_IN", str(w[0].message))
+
+        with warnings.catch_warnings(record=True) as w:
+            ret_val = anonymous_csrf_exempt(view)
+            self.assertFalse(hasattr(ret_val, "anonymous_csrf_exempt"))
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertIn("ANON_AS_LOGGED_IN", str(w[0].message))
 
 
 class TestCsrfToken(django.test.TestCase):
@@ -46,33 +119,33 @@ class TestCsrfToken(django.test.TestCase):
     def test_csrftoken_unauthenticated(self):
         # request.csrf_token is '' for anonymous users.
         response = self.client.get('/', follow=True)
-        self.assertEqual(response._request.csrf_token, '')
+        self.assertEqual(response.wsgi_request.csrf_token, '')
 
     def test_csrftoken_authenticated(self):
         # request.csrf_token is a random non-empty string for authed users.
         self.login()
         response = self.client.get('/', follow=True)
         # The CSRF token is a 32-character MD5 string.
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
     def test_csrftoken_new_session(self):
         # The csrf_token is added to request.session the first time.
         self.login()
         response = self.client.get('/', follow=True)
         # The CSRF token is a 32-character MD5 string.
-        token = response._request.session['csrf_token']
+        token = response.wsgi_request.session['csrf_token']
         self.assertEqual(len(token), 32)
-        self.assertEqual(token, response._request.csrf_token)
+        self.assertEqual(token, response.wsgi_request.csrf_token)
 
     def test_csrftoken_existing_session(self):
         # The csrf_token in request.session is reused on subsequent requests.
         self.login()
         r1 = self.client.get('/', follow=True)
-        token = r1._request.session['csrf_token']
+        token = r1.wsgi_request.session['csrf_token']
 
         r2 = self.client.get('/', follow=True)
-        self.assertEqual(r1._request.csrf_token, r2._request.csrf_token)
-        self.assertEqual(token, r2._request.csrf_token)
+        self.assertEqual(r1.wsgi_request.csrf_token, r2.wsgi_request.csrf_token)
+        self.assertEqual(token, r2.wsgi_request.csrf_token)
 
 
 class TestCsrfMiddleware(django.test.TestCase):
@@ -160,7 +233,7 @@ class TestCsrfMiddleware(django.test.TestCase):
         request.csrf_token = self.token
         request.groups = []
         ctx = {}
-        for processor in context.get_standard_processors():
+        for processor in get_context_processors():
             ctx.update(processor(request))
         self.assertEqual(ctx['csrf_token'], self.token)
 
@@ -209,7 +282,7 @@ class TestAnonymousCsrf(django.test.TestCase):
         response = self.client.get('/anon')
         # Get the key from the cookie and find the token in the cache.
         key = response.cookies['anoncsrf'].value
-        self.assertEqual(response._request.csrf_token, cache.get(prep_key(key)))
+        self.assertEqual(response.wsgi_request.csrf_token, cache.get(prep_key(key)))
 
     def test_existing_anon_cookie_on_request(self):
         # We reuse an existing anon cookie key+token.
@@ -218,7 +291,7 @@ class TestAnonymousCsrf(django.test.TestCase):
         # Now check that subsequent requests use that cookie.
         response = self.client.get('/anon')
         self.assertEqual(response.cookies['anoncsrf'].value, key)
-        self.assertEqual(response._request.csrf_token, cache.get(prep_key(key)))
+        self.assertEqual(response.wsgi_request.csrf_token, cache.get(prep_key(key)))
 
     def test_new_anon_token_on_response(self):
         # The anon cookie is sent and we vary on Cookie.
@@ -244,12 +317,12 @@ class TestAnonymousCsrf(django.test.TestCase):
 
     def test_existing_anon_cookie_not_in_cache(self):
         response = self.client.get('/anon')
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
         # Clear cache and make sure we still get a token
         cache.clear()
         response = self.client.get('/anon')
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
     def test_anonymous_csrf_exempt(self):
         response = self.client.post('/no-anon-csrf')
@@ -283,7 +356,7 @@ class TestAnonAlways(django.test.TestCase):
         # when ANON_ALWAYS is enabled.
         response = self.client.get('/', follow=True)
         # The CSRF token is a 32-character MD5 string.
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
     def test_authenticated_request(self):
         # Nothing special happens, nothing breaks.
@@ -307,7 +380,7 @@ class TestAnonAlways(django.test.TestCase):
         response = self.client.get('/')
         # Get the key from the cookie and find the token in the cache.
         key = response.cookies['anoncsrf'].value
-        self.assertEqual(response._request.csrf_token, cache.get(prep_key(key)))
+        self.assertEqual(response.wsgi_request.csrf_token, cache.get(prep_key(key)))
 
     def test_existing_anon_cookie_on_request(self):
         # We reuse an existing anon cookie key+token.
@@ -317,7 +390,7 @@ class TestAnonAlways(django.test.TestCase):
         # Now check that subsequent requests use that cookie.
         response = self.client.get('/')
         self.assertEqual(response.cookies['anoncsrf'].value, key)
-        self.assertEqual(response._request.csrf_token, cache.get(prep_key(key)))
+        self.assertEqual(response.wsgi_request.csrf_token, cache.get(prep_key(key)))
         self.assertEqual(response['Vary'], 'Cookie')
 
     def test_anon_csrf_logout(self):
@@ -328,12 +401,12 @@ class TestAnonAlways(django.test.TestCase):
 
     def test_existing_anon_cookie_not_in_cache(self):
         response = self.client.get('/')
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
         # Clear cache and make sure we still get a token
         cache.clear()
         response = self.client.get('/')
-        self.assertEqual(len(response._request.csrf_token), 32)
+        self.assertEqual(len(response.wsgi_request.csrf_token), 32)
 
     def test_massive_anon_cookie(self):
         # if the key + PREFIX + setting prefix is greater than 250
@@ -352,33 +425,60 @@ class TestAnonAlways(django.test.TestCase):
             self.assertEqual(warner.call_count, 0)
 
 
-class ClientHandler(django.test.client.ClientHandler):
-    """
-    Handler that stores the real request object on the response.
-
-    Almost all the code comes from the parent class.
-    """
-
-    def __call__(self, environ):
-        # Set up middleware if needed. We couldn't do this earlier, because
-        # settings weren't available.
-        if self._request_middleware is None:
-            self.load_middleware()
-
-        signals.request_started.send(sender=self.__class__)
+def get_context_processors():
+    """Get context processors in a way that works for Django 1.4, 1.7, and 1.8"""
+    try:
+        from django.template.context import get_standard_processors
+        return get_standard_processors()
+    except ImportError:
         try:
-            request = WSGIRequest(environ)
-            # sneaky little hack so that we can easily get round
-            # CsrfViewMiddleware.  This makes life easier, and is probably
-            # required for backwards compatibility with external tests against
-            # admin views.
-            request._dont_enforce_csrf_checks = not self.enforce_csrf_checks
-            response = self.get_response(request)
-        finally:
-            signals.request_finished.disconnect(close_connection)
-            signals.request_finished.send(sender=self.__class__)
-            signals.request_finished.connect(close_connection)
+            from django.template.engine import Engine
+            engine = Engine.get_default()
+        except ImproperlyConfigured:
+            return []
+        return engine.template_context_processors
 
-        # Store the request object.
-        response._request = request
-        return response
+try:
+    # for Django 1.4 support
+    from django.db import close_connection
+
+    class ClientHandler(django.test.client.ClientHandler):
+        """
+        Handler that stores the real request object on the response.
+
+        Almost all the code comes from the parent class.
+        """
+
+        def __call__(self, environ):
+            # Set up middleware if needed. We couldn't do this earlier, because
+            # settings weren't available.
+            if self.wsgi_request_middleware is None:
+                self.load_middleware()
+
+            signals.request_started.send(sender=self.__class__)
+            try:
+                request = WSGIRequest(environ)
+                # sneaky little hack so that we can easily get round
+                # CsrfViewMiddleware.  This makes life easier, and is probably
+                # required for backwards compatibility with external tests against
+                # admin views.
+                request._dont_enforce_csrf_checks = not self.enforce_csrf_checks
+                response = self.get_response(request)
+            finally:
+                signals.request_finished.disconnect(close_connection)
+                signals.request_finished.send(sender=self.__class__)
+                signals.request_finished.connect(close_connection)
+
+            # Store the request object.
+            response.wsgi_request = request
+            return response
+
+        @property
+        def wsgi_request_middleware(self):
+            return self._request_middleware
+except ImportError:
+    # for 1.7 support
+    class ClientHandler(django.test.client.ClientHandler):
+        @property
+        def wsgi_request_middleware(self):
+            return self._request_middleware

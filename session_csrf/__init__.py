@@ -1,6 +1,7 @@
 """CSRF protection without cookies."""
 import functools
 import hashlib
+import warnings
 
 from django.conf import settings
 from django.core.cache import cache
@@ -12,6 +13,7 @@ from django.utils.cache import patch_vary_headers
 ANON_COOKIE = getattr(settings, 'ANON_COOKIE', 'anoncsrf')
 ANON_TIMEOUT = getattr(settings, 'ANON_TIMEOUT', 60 * 60 * 2)  # 2 hours.
 ANON_ALWAYS = getattr(settings, 'ANON_ALWAYS', False)
+ANON_AS_LOGGED_IN = getattr(settings, 'ANON_AS_LOGGED_IN', False)
 PREFIX = 'sessioncsrf:'
 
 
@@ -32,6 +34,7 @@ def prep_key(key):
     prefixed = PREFIX + key
     return hashlib.md5(prefixed).hexdigest()
 
+
 class CsrfMiddleware(object):
 
     # csrf_processing_done prevents checking CSRF more than once. That could
@@ -50,7 +53,7 @@ class CsrfMiddleware(object):
         """
         if hasattr(request, 'csrf_token'):
             return
-        if request.user.is_authenticated():
+        if request.user.is_authenticated() or ANON_AS_LOGGED_IN:
             if 'csrf_token' not in request.session:
                 token = django_csrf._get_new_csrf_key()
                 request.csrf_token = request.session['csrf_token'] = token
@@ -81,7 +84,7 @@ class CsrfMiddleware(object):
             return
 
         if (getattr(view_func, 'anonymous_csrf_exempt', False)
-            and not request.user.is_authenticated()):
+                and not (request.user.is_authenticated() or ANON_AS_LOGGED_IN)):
             return
 
         # Bail if this is a safe method.
@@ -123,6 +126,11 @@ class CsrfMiddleware(object):
 
 def anonymous_csrf(f):
     """Decorator that assigns a CSRF token to an anonymous user."""
+    if ANON_AS_LOGGED_IN:
+        # this is pointless, we should warn the user
+        warnings.warn("You have set ANON_AS_LOGGED_IN to True, anontmous_csrf decorator will do nothing")
+        return f
+
     @functools.wraps(f)
     def wrapper(request, *args, **kw):
         use_anon_cookie = not (request.user.is_authenticated() or ANON_ALWAYS)
@@ -147,6 +155,11 @@ def anonymous_csrf(f):
 
 def anonymous_csrf_exempt(f):
     """Like @csrf_exempt but only for anonymous requests."""
+    if ANON_AS_LOGGED_IN:
+        # this is pointless, we should warn the user
+        warnings.warn("You have set ANON_AS_LOGGED_IN to True, anontmous_csrf decorator will do nothing")
+        return f
+
     f.anonymous_csrf_exempt = True
     return f
 
