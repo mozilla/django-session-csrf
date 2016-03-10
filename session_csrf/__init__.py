@@ -1,4 +1,5 @@
 """CSRF protection without cookies."""
+from __future__ import unicode_literals
 import functools
 import hashlib
 
@@ -17,7 +18,7 @@ from django.utils.cache import patch_vary_headers
 ANON_COOKIE = getattr(settings, 'ANON_COOKIE', 'anoncsrf')
 ANON_TIMEOUT = getattr(settings, 'ANON_TIMEOUT', 60 * 60 * 2)  # 2 hours.
 ANON_ALWAYS = getattr(settings, 'ANON_ALWAYS', False)
-PREFIX = 'sessioncsrf:'
+PREFIX = b'sessioncsrf:'
 
 
 # This overrides django.core.context_processors.csrf to dump our csrf_token
@@ -34,6 +35,7 @@ def prep_key(key):
     MemcachedKeyLengthError or MemcachedKeyCharacterError. We hash the
     key here in order to have a predictable length and character set.
     """
+    key = key.encode("utf8")
     prefixed = PREFIX + key
     return hashlib.md5(prefixed).hexdigest()
 

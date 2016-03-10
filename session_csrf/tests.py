@@ -1,4 +1,4 @@
-import urllib
+from __future__ import unicode_literals
 
 import django.test
 from django import http
@@ -13,11 +13,13 @@ from django.core.cache import cache
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.exceptions import ImproperlyConfigured
 
-import mock
-
 import session_csrf
 from session_csrf import (anonymous_csrf, anonymous_csrf_exempt,
                           CsrfMiddleware, prep_key)
+try:
+    import mock
+except ImportError:
+    from unittest import mock
 
 
 urlpatterns = [
