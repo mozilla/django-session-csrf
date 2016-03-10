@@ -352,11 +352,13 @@ class TestAnonAlways(django.test.TestCase):
 
 
 def get_context_processors():
-    """Get context processors in a way that works for Django 1.4, 1.7, and 1.8"""
+    """Get context processors in a way that works for Django 1.7 and 1.8+"""
     try:
+        # 1.7
         from django.template.context import get_standard_processors
         return get_standard_processors()
     except ImportError:
+        # 1.8+
         try:
             from django.template.engine import Engine
             engine = Engine.get_default()
@@ -364,47 +366,9 @@ def get_context_processors():
             return []
         return engine.template_context_processors
 
-try:
-    # for Django 1.4 support
-    from django.db import close_connection
 
-    class ClientHandler(django.test.client.ClientHandler):
-        """
-        Handler that stores the real request object on the response.
-
-        Almost all the code comes from the parent class.
-        """
-
-        def __call__(self, environ):
-            # Set up middleware if needed. We couldn't do this earlier, because
-            # settings weren't available.
-            if self.wsgi_request_middleware is None:
-                self.load_middleware()
-
-            signals.request_started.send(sender=self.__class__)
-            try:
-                request = WSGIRequest(environ)
-                # sneaky little hack so that we can easily get round
-                # CsrfViewMiddleware.  This makes life easier, and is probably
-                # required for backwards compatibility with external tests against
-                # admin views.
-                request._dont_enforce_csrf_checks = not self.enforce_csrf_checks
-                response = self.get_response(request)
-            finally:
-                signals.request_finished.disconnect(close_connection)
-                signals.request_finished.send(sender=self.__class__)
-                signals.request_finished.connect(close_connection)
-
-            # Store the request object.
-            response.wsgi_request = request
-            return response
-
-        @property
-        def wsgi_request_middleware(self):
-            return self._request_middleware
-except ImportError:
-    # for 1.7 support
-    class ClientHandler(django.test.client.ClientHandler):
-        @property
-        def wsgi_request_middleware(self):
-            return self._request_middleware
+# for 1.7 support
+class ClientHandler(django.test.client.ClientHandler):
+    @property
+    def wsgi_request_middleware(self):
+        return self._request_middleware
