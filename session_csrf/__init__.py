@@ -50,7 +50,7 @@ class CsrfMiddleware(object):
         """
         if hasattr(request, 'csrf_token'):
             return
-        if request.user.is_authenticated():
+        if hasattr(request, 'user') and request.user.is_authenticated():
             if 'csrf_token' not in request.session:
                 token = django_csrf._get_new_csrf_key()
                 request.csrf_token = request.session['csrf_token'] = token
