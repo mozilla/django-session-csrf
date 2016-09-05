@@ -3,9 +3,14 @@ import functools
 import hashlib
 
 from django.conf import settings
+from django import VERSION as DJANGO_VERSION
 from django.core.cache import cache
 from django.middleware import csrf as django_csrf
-from django.utils import crypto
+try:
+    from django.middleware.csrf import _get_new_csrf_key as django_get_new_csrf_string
+except ImportError:
+    from django.middleware.csrf import _get_new_csrf_string as django_get_new_csrf_string
+from django.utils import crypto, deprecation
 from django.utils.cache import patch_vary_headers
 
 
@@ -32,7 +37,17 @@ def prep_key(key):
     prefixed = PREFIX + key
     return hashlib.md5(prefixed).hexdigest()
 
-class CsrfMiddleware(object):
+
+def is_user_authenticated(request):
+    if DJANGO_VERSION < (1, 10, 0):
+        return request.user.is_authenticated()
+    else:
+        return request.user.is_authenticated
+
+# Inherit from deprecation.MiddlewareMixin to ensure it works
+# with the new style middleware in Django 1.10 - see
+# https://docs.djangoproject.com/en/1.10/topics/http/middleware/#django.utils.deprecation.MiddlewareMixin
+class CsrfMiddleware(deprecation.MiddlewareMixin if DJANGO_VERSION >= (1, 10, 0) else object):
 
     # csrf_processing_done prevents checking CSRF more than once. That could
     # happen if the requires_csrf_token decorator is used.
@@ -50,9 +65,9 @@ class CsrfMiddleware(object):
         """
         if hasattr(request, 'csrf_token'):
             return
-        if request.user.is_authenticated():
+        if is_user_authenticated(request):
             if 'csrf_token' not in request.session:
-                token = django_csrf._get_new_csrf_key()
+                token = django_get_new_csrf_string()
                 request.csrf_token = request.session['csrf_token'] = token
             else:
                 request.csrf_token = request.session['csrf_token']
@@ -64,9 +79,9 @@ class CsrfMiddleware(object):
                 token = cache.get(prep_key(key), '')
             if ANON_ALWAYS:
                 if not key:
-                    key = django_csrf._get_new_csrf_key()
+                    key = django_get_new_csrf_string()
                 if not token:
-                    token = django_csrf._get_new_csrf_key()
+                    token = django_get_new_csrf_string()
                 request._anon_csrf_key = key
                 cache.set(prep_key(key), token, ANON_TIMEOUT)
             request.csrf_token = token
@@ -81,7 +96,7 @@ class CsrfMiddleware(object):
             return
 
         if (getattr(view_func, 'anonymous_csrf_exempt', False)
-            and not request.user.is_authenticated()):
+            and not is_user_authenticated(request)):
             return
 
         # Bail if this is a safe method.
@@ -125,14 +140,14 @@ def anonymous_csrf(f):
     """Decorator that assigns a CSRF token to an anonymous user."""
     @functools.wraps(f)
     def wrapper(request, *args, **kw):
-        use_anon_cookie = not (request.user.is_authenticated() or ANON_ALWAYS)
+        use_anon_cookie = not (is_user_authenticated(request) or ANON_ALWAYS)
         if use_anon_cookie:
             if ANON_COOKIE in request.COOKIES:
                 key = request.COOKIES[ANON_COOKIE]
-                token = cache.get(prep_key(key)) or django_csrf._get_new_csrf_key()
+                token = cache.get(prep_key(key)) or django_get_new_csrf_string()
             else:
-                key = django_csrf._get_new_csrf_key()
-                token = django_csrf._get_new_csrf_key()
+                key = django_get_new_csrf_string()
+                token = django_get_new_csrf_string()
             cache.set(prep_key(key), token, ANON_TIMEOUT)
             request.csrf_token = token
         response = f(request, *args, **kw)

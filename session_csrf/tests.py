@@ -2,7 +2,7 @@ import urllib
 
 import django.test
 from django import http
-from django.conf.urls import patterns
+from django.conf.urls import url
 from django.contrib.auth import logout
 from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.auth.models import User
@@ -20,12 +20,12 @@ from session_csrf import (anonymous_csrf, anonymous_csrf_exempt,
                           CsrfMiddleware, prep_key)
 
 
-urlpatterns = patterns('',
-    ('^$', lambda r: http.HttpResponse()),
-    ('^anon$', anonymous_csrf(lambda r: http.HttpResponse())),
-    ('^no-anon-csrf$', anonymous_csrf_exempt(lambda r: http.HttpResponse())),
-    ('^logout$', anonymous_csrf(lambda r: logout(r) or http.HttpResponse())),
-)
+urlpatterns = [
+    url('^$', lambda r: http.HttpResponse()),
+    url('^anon$', anonymous_csrf(lambda r: http.HttpResponse())),
+    url('^no-anon-csrf$', anonymous_csrf_exempt(lambda r: http.HttpResponse())),
+    url('^logout$', anonymous_csrf(lambda r: logout(r) or http.HttpResponse())),
+]
 
 
 class TestCsrfToken(django.test.TestCase):
