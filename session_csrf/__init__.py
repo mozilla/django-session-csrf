@@ -39,10 +39,13 @@ def prep_key(key):
 
 
 def is_user_authenticated(request):
+    user = getattr(request, 'user', None)
+    if not user:
+        return False
     if DJANGO_VERSION < (1, 10, 0):
-        return request.user.is_authenticated()
+        return user.is_authenticated()
     else:
-        return request.user.is_authenticated
+        return user.is_authenticated
 
 # Inherit from deprecation.MiddlewareMixin to ensure it works
 # with the new style middleware in Django 1.10 - see
