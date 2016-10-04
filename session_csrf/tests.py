@@ -168,7 +168,7 @@ class TestCsrfMiddleware(django.test.TestCase):
         # Same as would happen if you never use the built-in
         # AuthenticationMiddleware.
         request = self.rf.get('/')
-        print self.mw.process_request(request)
+        self.assertEqual(self.mw.process_request(request), None)
 
 
 class TestAnonymousCsrf(django.test.TestCase):
