@@ -1,4 +1,4 @@
-import urllib
+from __future__ import unicode_literals
 
 import django.test
 from django import http
@@ -13,11 +13,14 @@ from django.core.cache import cache
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.exceptions import ImproperlyConfigured
 
-import mock
-
 import session_csrf
 from session_csrf import (anonymous_csrf, anonymous_csrf_exempt,
                           CsrfMiddleware, prep_key)
+try:
+    from unittest import mock
+except ImportError:
+    # Python 2.7 doesn't have unittest.mock, but it is available on PyPi
+    import mock
 
 
 urlpatterns = [
@@ -108,7 +111,7 @@ class TestCsrfMiddleware(django.test.TestCase):
 
     def test_csrf_exempt(self):
         # Make sure @csrf_exempt still works.
-        view = type("", (), {'csrf_exempt': True})()
+        view = type(str(""), (), {'csrf_exempt': True})()
         self.assertEqual(self.process_view(self.rf.post('/'), view), None)
 
     def test_safe_whitelist(self):

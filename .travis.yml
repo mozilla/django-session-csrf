@@ -2,11 +2,20 @@ language: python
 sudo: false
 python:
   - "2.7"
+  - "3.4"
+  - "3.5"
 
 env:
   - DJANGO="Django==1.8.15"
   - DJANGO="Django==1.9.10"
   - DJANGO="Django==1.10.1"
+
+matrix:
+  include:
+    # include Python 3.3 for Django 1.8 only
+    # remove once Django 1.8 is no longer supported
+    - python: "3.3"
+      env: DJANGO="Django==1.8.15"
 
 install: pip install $DJANGO
 
