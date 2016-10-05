@@ -163,6 +163,13 @@ class TestCsrfMiddleware(django.test.TestCase):
             ctx.update(processor(request))
         self.assertEqual(ctx['csrf_token'], self.token)
 
+    def test_process_view_without_authentication_middleware(self):
+        # No request.user
+        # Same as would happen if you never use the built-in
+        # AuthenticationMiddleware.
+        request = self.rf.get('/')
+        self.assertEqual(self.mw.process_request(request), None)
+
 
 class TestAnonymousCsrf(django.test.TestCase):
     urls = 'session_csrf.tests'
