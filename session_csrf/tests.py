@@ -17,9 +17,10 @@ import session_csrf
 from session_csrf import (anonymous_csrf, anonymous_csrf_exempt,
                           CsrfMiddleware, prep_key)
 try:
-    import mock
-except ImportError:
     from unittest import mock
+except ImportError:
+    # Python 2.7 doesn't have unittest.mock, but it is available on PyPi
+    import mock
 
 
 urlpatterns = [
