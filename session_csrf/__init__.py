@@ -171,8 +171,14 @@ def anonymous_csrf_exempt(f):
     return f
 
 
+def get_token(request):
+    return getattr(request, 'csrf_token', None)
+
+
 # Replace Django's middleware with our own.
 def monkeypatch():
     from django.views.decorators import csrf as csrf_dec
     django_csrf.CsrfViewMiddleware = CsrfMiddleware
     csrf_dec.csrf_protect = csrf_dec.decorator_from_middleware(CsrfMiddleware)
+    from django.middleware import csrf
+    csrf.get_token = get_token
