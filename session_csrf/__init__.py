@@ -83,6 +83,7 @@ class CsrfMiddleware(deprecation.MiddlewareMixin if DJANGO_VERSION >= (1, 10, 0)
                 key = request.COOKIES[ANON_COOKIE]
                 token = cache.get(prep_key(key), '')
             if ANON_ALWAYS:
+                # pretend that anonymous_csrf was applied to the view
                 if not key:
                     key = django_get_new_csrf_string()
                 if not token:
